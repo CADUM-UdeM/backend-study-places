@@ -34,6 +34,25 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
+app.get('/test', (req, res) => {
+    client.connect(err => {
+        if (err) {
+            console.error('Failed to connect to the database:', err);
+            res.status(500).send('Database connection error');
+            return;
+        }
+        const collection = client.db("sample_mflix").collection("users");
+        collection.find({}).toArray((err, users) => {
+            if (err) {
+                console.error('Failed to fetch users:', err);
+                res.status(500).send('Error fetching users');
+                return;
+            }
+            res.json(users);
+        });
+    });
+});
+
 
 
 app.listen(port, () => {
