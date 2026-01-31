@@ -1,60 +1,98 @@
 const express = require('express');
-const app = express();
-const port = 3000;
+const cors = require('cors');
+const helmet = require('helmet');
 const dotenv = require('dotenv');
+
+// Load environment variables
 dotenv.config();
 
+// Import database connection
+const { connectToDatabase } = require('./config/database');
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = process.env.mongodb_key;
+// Import middleware
+const errorHandler = require('./middleware/errorHandler');
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
+// Import routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const friendRoutes = require('./routes/friends');
+const placeRoutes = require('./routes/places');
+const promoRoutes = require('./routes/promos');
+const reviewRoutes = require('./routes/reviews');
+const sessionRoutes = require('./routes/sessions');
+const notificationRoutes = require('./routes/notifications');
+const savedRoutes = require('./routes/saved');
+const blockRoutes = require('./routes/blocks');
 
-async function run() {
-    try {
-        // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
-        // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-        // Ensures that the client will close when you finish/error
-        await client.close();
-    }
-}
-run().catch(console.dir);
+// Initialize Express app
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Health check route
 app.get('/', (req, res) => {
-    res.send('Hello World!');
-});
-
-app.get('/test', (req, res) => {
-    client.connect(err => {
-        if (err) {
-            console.error('Failed to connect to the database:', err);
-            res.status(500).send('Database connection error');
-            return;
-        }
-        const collection = client.db("sample_mflix").collection("users");
-        collection.find({}).toArray((err, users) => {
-            if (err) {
-                console.error('Failed to fetch users:', err);
-                res.status(500).send('Error fetching users');
-                return;
-            }
-            res.json(users);
-        });
+    res.json({
+        message: 'Deja Brew API',
+        version: '1.0.0',
+        status: 'running'
     });
 });
 
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/friends', friendRoutes);
+app.use('/api/places', placeRoutes);
+app.use('/api/promos', promoRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/saved', savedRoutes);
+app.use('/api/block', blockRoutes);
 
-
-app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`);
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({
+        error: {
+            message: 'Route not found',
+            code: 'NOT_FOUND'
+        }
+    });
 });
+
+// Error handler (must be last)
+app.use(errorHandler);
+
+// Start server
+async function startServer() {
+    try {
+        // Connect to database
+        await connectToDatabase();
+        
+        // Start listening
+        app.listen(port, () => {
+            console.log(`✅ Deja Brew API running on http://localhost:${port}`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+}
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('\nShutting down gracefully...');
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('\nShutting down gracefully...');
+    process.exit(0);
+});
+
+startServer();
